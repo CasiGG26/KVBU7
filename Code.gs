@@ -1,5 +1,5 @@
 // ===== Instellingen =====
-const TRAINER = 'VERANDER-MIJ';              // geheime trainerscode
+const TRAINER = 'KVBU7';              // geheime trainerscode
 const FEEDS = {                               // de .ics-links van Foot24 (iCal-link kopiëren)
   A: 'https://www.foot24.be/nl/ical/kv-bonheiden/u7-a-1141.ics?key=m71PmnR',
   B: 'https://www.foot24.be/nl/ical/kv-bonheiden/u7-b-1343.ics?key=nG2PnWR'
