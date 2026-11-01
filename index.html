@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="U7 Bonheiden">
+<meta name="theme-color" content="#14532d">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png">
+<title>KV Bonheiden U7</title>
+<style>
+:root{--bg:#eef2f0;--card:#fff;--ink:#14231b;--mute:#5f6f66;--acc:#14532d;--over:#b4372a;--line:#d9e2dc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:560px;margin:0 auto;padding:16px}
+section{background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 6px;color:var(--mute);font-weight:600}
+input,select,button,textarea{font:inherit;width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);margin-bottom:8px}
+input[type=checkbox]{width:20px;height:20px;margin:0;flex:none}
+button.p{background:var(--acc);color:#fff;border:0;font-weight:600}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+header.logo{display:flex;align-items:center;gap:11px;margin:2px 0 16px}
+header.logo span{font-size:24px;letter-spacing:-.5px;font-weight:300;line-height:1.1}header.logo b{font-weight:800}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{margin:0;border:0;background:#dbe5de;color:var(--mute);font-weight:600;padding:11px 4px}.tabs button.on{background:var(--ink);color:#fff}
+.m{border-top:1px solid var(--line);padding:10px 0}.m:first-of-type{border-top:0}
+.mh{display:flex;justify-content:space-between;align-items:center}
+.tag{font-size:12px;background:#e3ede7;color:var(--acc);padding:2px 8px;border-radius:10px;font-weight:600}
+.m a{color:var(--mute);font-size:14px}
+.ab{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}.ab button{margin:0;padding:10px 2px}
+.ab .s{border:0;color:#fff;font-weight:600}.ab .s.ja{background:#14532d}.ab .s.misschien{background:#c98a14}.ab .s.nee{background:#b4372a}
+.ok{color:var(--acc);font-weight:600}.pl{margin-top:6px;font-weight:600}.mute{color:var(--mute);font-size:14px}
+.pr{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer}.pr small:last-child{margin-left:auto;color:var(--mute)}
+.b{width:22px;height:22px;border-radius:50%;text-align:center;font-size:13px;line-height:22px;color:#fff;background:#aab5ae;flex:none}
+.b.ja{background:#14532d}.b.misschien{background:#c98a14}.b.nee{background:#b4372a}
+#msg{color:var(--over);font-size:14px;min-height:18px;margin-bottom:6px}
+.link{color:var(--mute);font-size:13px;text-align:center}.link u{cursor:pointer}
+</style></head><body><main>
+<header class="logo"><svg width="44" height="44" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#14532d"/><circle cx="24" cy="24" r="14" fill="#fff"/><path d="M24 15.5l7 5-2.7 8.2h-8.6L17 20.5z" fill="#14231b"/></svg><span><b>KV Bonheiden</b> U7</span></header>
+<section id="pick" hidden>
+<h2>Voor welk kind geef je antwoord?</h2>
+<select id="pSel"></select>
+<button class="p" onclick="pick()">Verder</button>
+<div class="link"><u onclick="askCode()">Ik ben de trainer</u></div>
+</section>
+<div id="app" hidden>
+<div class="tabs"><button id="tw" onclick="tab('w')">Wedstrijden</button><button id="ti" onclick="tab('i')">Indeling</button><button id="tt" onclick="tab('t')" hidden>Trainer</button></div>
+<div id="msg"></div>
+<div id="c"></div>
+<div class="link" id="me"></div>
+</div></main>
+<script>
+const API='PLAK-HIER-DE-EXEC-URL';
+const $=id=>document.getElementById(id);
+let S=JSON.parse(localStorage.getItem('v')||'{}'),D=JSON.parse(localStorage.getItem('vd')||'{"wedstrijden":[],"spelers":[],"antwoorden":[],"indeling":[],"trainer":false}'),V='w',DR={};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const saveS=()=>localStorage.setItem('v',JSON.stringify(S)),cache=()=>localStorage.setItem('vd',JSON.stringify(D)),msg=t=>$('msg').textContent=t;
+const wk=d=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-(x.getDay()+6)%7);return x.toISOString().slice(0,10)};
+const wlabel=k=>{const x=new Date(k+'T12:00:00');x.setDate(x.getDate()+5);return 'Weekend van '+x.toLocaleDateString('nl-BE',{day:'numeric',month:'long'})};
+const dt=d=>new Date(d+'T12:00:00').toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
+const title=w=>'U7 '+w.ploeg,sub=w=>dt(w.datum)+(w.uur?' · '+w.uur:'')+' · tegen '+esc(w.tegen);
+const head=w=>`<div class="mh"><b>${title(w)}</b><span class="tag">${w.thuis?'Thuis':'Uit'}</span></div><div>${sub(w)}</div>`;
+const getA=(id,n)=>D.antwoorden.find(a=>a.id===id&&a.speler===n);
+function groups(){const g={};D.wedstrijden.forEach((w,i)=>(g[wk(w.datum)]=g[wk(w.datum)]||[]).push(i));return Object.keys(g).sort().map(k=>[k,g[k]])}
+async function api(body){
+  const r=body?await fetch(API,{method:'POST',body:JSON.stringify({...body,code:S.code})})
+              :await fetch(API+'?speler='+encodeURIComponent(S.speler||'')+'&code='+encodeURIComponent(S.code||''));
+  const j=await r.json();if(j.error)throw new Error(j.error);return j;
+}
+async function load(){
+  try{D=await api();cache();D.wedstrijden.forEach(w=>{if(!DR[w.id]){const r=D.indeling.find(i=>i.id===w.id);DR[w.id]=r?r.spelers.slice():[]}});render();msg('')}
+  catch(e){msg('Kon niet synchroniseren: '+e.message)}
+}
+function render(){
+  const ok=S.speler||S.code;$('pick').hidden=!!ok;$('app').hidden=!ok;
+  if(!ok){$('pSel').innerHTML=D.spelers.map(n=>`<option>${esc(n)}</option>`).join('')||'<option value="">De trainer moet eerst de spelers invullen</option>';return}
+  $('tt').hidden=!D.trainer;if(V==='t'&&!D.trainer)V='w';
+  ['w','i','t'].forEach(k=>$('t'+k).className=V===k?'on':'');
+  $('c').innerHTML=V==='w'?vW():V==='i'?vI():vT();
+  $('me').innerHTML=(S.speler?'Antwoorden voor <b>'+esc(S.speler)+'</b> · <u onclick="chg()">ander kind</u>':'')+(D.trainer?'':' · <u onclick="askCode()">trainer</u>');
+}
+function tab(k){V=k;render()}
+function pick(){const v=$('pSel').value;if(!v)return;S.speler=v;saveS();load()}
+function chg(){S.speler='';saveS();load();render()}
+async function askCode(){const c=prompt('Trainercode');if(!c)return;S.code=c;saveS();await load();if(!D.trainer){alert('Code klopt niet');S.code='';saveS();render()}else{V='t';render()}}
+function vW(){
+  if(!S.speler)return '<section>Kies een kind via "ander kind" om antwoorden door te geven.</section>';
+  if(!D.wedstrijden.length)return '<section>Geen komende wedstrijden gevonden.</section>';
+  return groups().map(([k,ix])=>`<section><h2>${wlabel(k)}</h2>${ix.map(card).join('')}</section>`).join('');
+}
+function card(i){
+  const w=D.wedstrijden[i],a=getA(w.id,S.speler),r=D.indeling.find(x=>x.id===w.id&&x.bevestigd);
+  const b=(v,l)=>`<button class="${a&&a.antwoord===v?'s '+v:''}" onclick="ans(${i},'${v}')">${l}</button>`;
+  return `<div class="m">${head(w)}${w.plaats?`<a href="https://maps.google.com?q=${encodeURIComponent(w.plaats)}">${esc(w.plaats)}</a>`:''}
+  <div class="ab">${b('ja','Ja')}${b('misschien','Misschien')}${b('nee','Nee')}</div>
+  <input id="n${i}" placeholder="Opmerking (bv. pas na 10u)" value="${esc(a?a.opm:'')}" onchange="note(${i})">
+  ${r&&r.spelers.includes(S.speler)?'<div class="ok">✓ Ingedeeld voor deze wedstrijd</div>':''}</div>`;
+}
+function ans(i,v){save1(D.wedstrijden[i].id,v,($('n'+i)||{}).value||'')}
+function note(i){const w=D.wedstrijden[i],a=getA(w.id,S.speler);a?save1(w.id,a.antwoord,$('n'+i).value):msg('Kies eerst Ja, Misschien of Nee.')}
+async function save1(id,v,n){
+  const a=getA(id,S.speler);if(a){a.antwoord=v;a.opm=n}else D.antwoorden.push({id,speler:S.speler,antwoord:v,opm:n});
+  cache();render();
+  try{await api({actie:'antwoord',id,speler:S.speler,antwoord:v,opm:n})}catch(e){msg('Opslaan mislukt: '+e.message)}
+}
+function vI(){
+  if(!D.wedstrijden.length)return '<section>Geen komende wedstrijden gevonden.</section>';
+  return groups().map(([k,ix])=>`<section><h2>${wlabel(k)}</h2>${ix.map(i=>{
+    const w=D.wedstrijden[i],r=D.indeling.find(x=>x.id===w.id&&x.bevestigd);
+    return `<div class="m">${head(w)}${r?`<div class="pl">${r.spelers.map(esc).join(', ')||'–'}</div>`:'<div class="mute">Indeling volgt</div>'}</div>`}).join('')}
+    ${D.trainer?`<button onclick="wa('${k}')">Kopieer WhatsApp-bericht</button>`:''}</section>`).join('');
+}
+function copy(t){navigator.clipboard.writeText(t).then(()=>msg('Gekopieerd, plak het in WhatsApp.'),()=>prompt('Kopieer dit bericht:',t))}
+function wa(k){
+  let t='',n=0;
+  groups().find(g=>g[0]===k)[1].forEach(i=>{const w=D.wedstrijden[i],r=D.indeling.find(x=>x.id===w.id&&x.bevestigd);if(!r)return;n++;
+    t+=`\n*${title(w)}* – ${dt(w.datum)}${w.uur?' '+w.uur:''}, ${w.thuis?'thuis':'uit'} tegen ${w.tegen}\n`+(w.plaats?`📍 ${w.plaats}\n`:'')+`👦 ${r.spelers.join(', ')}\n`});
+  n?copy(`⚽ *KV Bonheiden U7* – ${wlabel(k).toLowerCase()}\n`+t):msg('Bevestig eerst de indeling van minstens één wedstrijd.');
+}
+function vT(){
+  const cnt={};D.indeling.filter(r=>r.bevestigd).forEach(r=>r.spelers.forEach(n=>{(cnt[n]=cnt[n]||{A:0,B:0})[r.ploeg]++}));
+  return groups().map(([k,ix])=>`<section><h2>${wlabel(k)}</h2>${ix.map(i=>tm(i,cnt)).join('')}<button onclick="rem('${k}')">Kopieer herinnering (wie nog niet reageerde)</button></section>`).join('')
+   +`<section><h2>Spelerslijst (één naam per regel)</h2><textarea id="sl" rows="8">${esc(D.spelers.join('\n'))}</textarea><button class="p" onclick="saveSp()">Spelerslijst opslaan</button></section>`;
+}
+function tm(i,cnt){
+  const w=D.wedstrijden[i],sel=DR[w.id]||[],r=D.indeling.find(x=>x.id===w.id),conf=r&&r.bevestigd;
+  const rk={ja:0,misschien:1,geen:2,nee:3},ic={ja:'✓',misschien:'?',geen:'–',nee:'✗'};
+  const ps=D.spelers.map((n,j)=>{const a=getA(w.id,n);return{n,j,a:a?a.antwoord:'geen',o:a?a.opm:''}}).sort((x,y)=>rk[x.a]-rk[y.a]);
+  return `<div class="m">${head(w)}${ps.map(p=>{const c=cnt[p.n]||{A:0,B:0};
+   return `<label class="pr"><input type="checkbox" ${sel.includes(p.n)?'checked':''} onchange="tg(${i},${p.j})"><span class="b ${p.a}">${ic[p.a]}</span><span>${esc(p.n)}${p.o?` <small>(${esc(p.o)})</small>`:''}</span><small>A${c.A} B${c.B}</small></label>`}).join('')}
+   <div class="mute">${sel.length} gekozen${conf?' · bevestigd ✓':''}</div>
+   <div class="row"><button onclick="ind(${i},false)">Concept opslaan</button><button class="p" onclick="ind(${i},true)">Bevestigen</button></div></div>`;
+}
+function tg(i,j){const id=D.wedstrijden[i].id,n=D.spelers[j],s=DR[id]||(DR[id]=[]);const x=s.indexOf(n);x<0?s.push(n):s.splice(x,1);render()}
+async function ind(i,b){
+  const w=D.wedstrijden[i],s=(DR[w.id]||[]).slice();let r=D.indeling.find(x=>x.id===w.id);
+  if(r){r.spelers=s;r.bevestigd=b}else D.indeling.push({id:w.id,ploeg:w.ploeg,datum:w.datum,spelers:s,bevestigd:b});
+  cache();render();
+  try{await api({actie:'indeling',id:w.id,ploeg:w.ploeg,datum:w.datum,spelers:s,bevestigd:b});msg(b?'Bevestigd: ouders zien de indeling.':'Opgeslagen als concept (ouders zien het nog niet).')}
+  catch(e){msg('Opslaan mislukt: '+e.message)}
+}
+function rem(k){
+  const ws=groups().find(g=>g[0]===k)[1].map(i=>D.wedstrijden[i]);
+  const miss=D.spelers.filter(n=>ws.some(w=>!getA(w.id,n)));
+  miss.length?copy(`⚽ Kunnen jullie voor *${wlabel(k).toLowerCase()}* nog laten weten of jullie kind kan spelen? Nog niet gereageerd: ${miss.join(', ')}. Via de app: ${location.href.split('?')[0]}`):msg('Iedereen heeft gereageerd.');
+}
+async function saveSp(){
+  const l=$('sl').value.split('\n').map(s=>s.trim()).filter(Boolean);D.spelers=l;cache();
+  try{await api({actie:'spelers',lijst:l});msg('Spelerslijst opgeslagen.');render()}catch(e){msg('Opslaan mislukt: '+e.message)}
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+render();load();
+</script></body></html>
